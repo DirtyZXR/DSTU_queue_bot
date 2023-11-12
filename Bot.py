@@ -1,6 +1,7 @@
 import telebot
 from telebot import types
 import asyncio
+import json
 import snoop
 
 
@@ -19,6 +20,7 @@ class TGbot:
                          "Сапуголевцева Д.В.": 675869713,
                          "Старунский Д.А.": 1, "Струков М.А.": 1, "Федченко Г.Г.": 1, "Царев Н.И.": 1,
                          "Чернаявская Е.В.": 1}
+
         self.all_quque = {}
         self.markup_queue = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         self.hideKeyboard = types.ReplyKeyboardRemove()
@@ -216,8 +218,12 @@ class TGbot:
                 list_lessons += lesson + '\n'
             self.bot.send_message(message.chat.id, text=f'Список пар:\n{list_lessons}')
 
-        @self.bot.message_handler()
-        def del_add__list_stud():
+        @self.bot.message_handler(commands=['edit_students'])
+        def del_add__list_stud(message):
+            pass
+
+        @self.bot.message_handler(commands=['save'])
+        def save(message):
             pass
 
         @self.bot.message_handler(commands=['exchange'])
