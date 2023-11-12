@@ -22,6 +22,7 @@ class TGbot:
                          "Чернаявская Е.В.": 1}
 
         self.all_quque = {}
+        self.save_config = 'data.json'
         self.markup_queue = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         self.hideKeyboard = types.ReplyKeyboardRemove()
         self.lesson_started = False
@@ -218,13 +219,69 @@ class TGbot:
                 list_lessons += lesson + '\n'
             self.bot.send_message(message.chat.id, text=f'Список пар:\n{list_lessons}')
 
-        @self.bot.message_handler(commands=['edit_students'])
+        @self.bot.message_handler(commands=['list_students'])
+        def list_students(message):
+            lists_students = ''
+            for student in self.students:
+                lists_students += student + '\n'
+            self.bot.send_message(message.chat.id, text=f'Список студентов:\n{lists_students}')
+
+        @self.bot.message_handler(commands=['del_stud', 'add_stud'])
         def del_add__list_stud(message):
-            pass
+            if message.from_user.id == self.sid_admin:
+                if message.text == '/add_stud':
+                    stud = self.bot.send_message(message.chat.id, text="Напиши имя студента для добавления.")
+                    self.bot.register_next_step_handler(stud, add_student)
+                elif message.text == '/del_stud':
+                    stud = self.bot.send_message(message.chat.id, text="Напиши имя студента для удаления.", reply_markup=self.markup_students)
+                    self.bot.register_next_step_handler(stud, del_student)
+
+        def del_student(message):
+            student = message.text
+            if student in self.students:
+                for lesson in self.all_quque:
+                    self.all_quque[lesson].pop(student)
+
+                self.students.pop(student)
+
+                self.bot.send_message(message.chat.id, text=f'Студент {student} удален из списка.', reply_markup=self.hideKeyboard)
+            else:
+                self.bot.send_message(message.chat.id, text=f'Студент {student} не найден в списке.', reply_markup=self.hideKeyboard)
+
+        def add_student(message):
+            student = message.text
+            if student in self.students:
+                self.bot.send_message(message.chat.id, text=f'Студент {student} уже есть в списке.')
+            else:
+                for lesson in self.all_quque:
+                    self.all_quque[lesson][student] = len(self.all_quque[lesson]) + 1
+
+                self.students[student] = -1
+                sorted_keys = sorted(self.students.keys())
+                self.students = {key: self.students[key] for key in sorted_keys}
+
+                self.markup_students.keyboard.clear()
+
+                self.markup_students = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+                for student in self.students:
+                    self.markup_students.add(student)
+
+                self.bot.send_message(message.chat.id, text=f'Студент {student} добавлен в список.')
 
         @self.bot.message_handler(commands=['save'])
         def save(message):
-            pass
+            with open(self.save_config, 'w+') as file:
+                json.dump(self.students, file, ensure_ascii=False)
+
+            with open('quque.json', 'w+') as file:
+                json.dump(self.all_quque, file, ensure_ascii=False)
+
+
+            with open(self.save_config, 'rb') as file:
+                self.bot.send_document(message.chat.id, file)
+
+            with open('quque.json', 'rb') as file:
+                self.bot.send_document(message.chat.id, file)
 
         @self.bot.message_handler(commands=['exchange'])
         def exchange(message):
@@ -250,7 +307,7 @@ class TGbot:
 
         def request_exchange(message, lesson):
             stud = message.text
-            self.bot.send_message(message.chat.id, text=f'Отправил запрос {stud.text} на смену. Ожидайте подтвержения.', reply_markup=self.hideKeyboard)
+            self.bot.send_message(message.chat.id, text=f'Отправил запрос {stud} на смену. Ожидайте подтвержения.', reply_markup=self.hideKeyboard)
             items = self.students.items()
             result = next((item for item in items if item[1] == message.from_user.id), None)
             result = result[0]
@@ -284,10 +341,11 @@ class TGbot:
                         items = list(self.students.items())
                         stud1 = next((item for item in items if item[1] == stud1), None)
                         stud2 = next((item for item in items if item[1] == stud2), None)
+                        print(stud1, ' ', stud2)
                         stud1, stud2 = stud1[0], stud2[0]
-
-                        self.all_quque[lesson][stud1[0]], self.all_quque[lesson][stud2[0]] = \
-                            self.all_quque[lesson][stud2[0]], self.all_quque[lesson][stud1[0]]
+                        print(stud1, ' ', stud2)
+                        self.all_quque[lesson][stud1], self.all_quque[lesson][stud2] = \
+                            self.all_quque[lesson][stud2], self.all_quque[lesson][stud1]
 
                         sorted_dict = {k: v for k, v in
                                        sorted(self.all_quque[lesson].items(), key=lambda item: item[1])}
