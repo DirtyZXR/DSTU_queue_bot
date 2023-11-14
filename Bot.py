@@ -165,10 +165,53 @@ class TGbot:
 
             print(lesson)
             list_queue = ''
-            for student in lesson:
-                list_queue += str(lesson[student]) + ' --- ' + student + '\n'
-
+            if len(lesson) > 0:
+                for student in lesson:
+                    list_queue += str(lesson[student]) + ' --- ' + student + '\n'
+            else:
+                lsit_quque = 'Очередь путса'
             return list_queue
+
+        @self.bot.message_handler(commands=['del_stud', 'add_stud'])
+        def del_add__list_stud(message):
+            if message.from_user.id == self.sid_admin: #todo сделать ответ
+                if message.text == '/add_stud':
+                    stud = self.bot.send_message(message.chat.id, text="Напиши имя студента для добавления.")
+                    self.bot.register_next_step_handler(stud, add_student)
+                elif message.text == '/del_stud':
+                    stud = self.bot.send_message(message.chat.id, text="Напиши имя студента для удаления.", reply_markup=self.markup_students)
+                    self.bot.register_next_step_handler(stud, del_student)
+
+        def del_student(message):
+            student = message.text
+            if student in self.students:
+                for lesson in self.all_quque:
+                    self.all_quque[lesson].pop(student)
+
+                self.students.pop(student)
+
+                self.bot.send_message(message.chat.id, text=f'Студент {student} удален из списка.', reply_markup=self.hideKeyboard)
+            else:
+                self.bot.send_message(message.chat.id, text=f'Студент {student} не найден в списке.', reply_markup=self.hideKeyboard)
+
+        def add_student(message):
+            student = message.text
+            if student in self.students:
+                self.bot.send_message(message.chat.id, text=f'Студент {student} уже есть в списке.')
+            else:
+
+
+                self.students[student] = -1
+                sorted_keys = sorted(self.students.keys())
+                self.students = {key: self.students[key] for key in sorted_keys}
+
+                self.markup_students.keyboard.clear()
+
+                self.markup_students = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+                for student in self.students:
+                    self.markup_students.add(student)
+
+                self.bot.send_message(message.chat.id, text=f'Студент {message.text} добавлен в список.')
 
     def run(self):
         asyncio.run(self.bot.polling())
