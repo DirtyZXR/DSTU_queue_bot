@@ -9,17 +9,17 @@ class TGbot:
 
     def __init__(self):
         self.bot = telebot.TeleBot(token='6902607895:AAHnUydkC3hmYHdBHErldEnAI6bjNH6qTY4')
-        # self.sid_admin = 675869713 dasha
-        self.sid_admin = 1028552699
+        self.sid_admin = 675869713 #dasha
+        # self.sid_admin = 1028552699
         self.sids = {675869713, }
         self.students = {'Безуглов А.В.': 1, 'Бражко П.П.': 1, "Ващенко А.В.": 1, 'Горбатков С.А.': 1, "Гугиев А.": 1,
                          "Зелинский Д.Р.": 1028552699, "Ильинова Е.А.": 1, "Колеухов В.А.": 1, "Кононенко И.Д.": 1,
                          "Кравченко Р.С.": 1, "Круглянина А.Р.": 1, "Кузмин Д.А.": 1, "Курносенко Г.В.": 1,
                          "Лозинский Д.И.": 1,
                          "Маджарян Р.А": 1, "Мелихов А.Н.": 1, "Михно Р.А.": 1, "Рыбалкин А.В.": 1,
-                         "Сапуголевцева Д.В.": 675869713,
+                         "Сапуголевцева Д.М.": 675869713,
                          "Старунский Д.А.": 1, "Струков М.А.": 1, "Федченко Г.Г.": 1, "Царев Н.И.": 1,
-                         "Чернаявская Е.В.": 1}
+                         "Чернявская Е.В.": 1}
 
         self.all_quque = {}
         self.save_config = 'data.json'
@@ -27,6 +27,7 @@ class TGbot:
         self.hideKeyboard = types.ReplyKeyboardRemove()
         self.lesson_started = False
         self.now_lesson = None
+        self.students_now = {}
         # self.gruop_id = -1852603965
         self.gruop_id = -514977824
         self.wait_exhacnge = {}
@@ -126,43 +127,76 @@ class TGbot:
                 lesson = lesson.split(' ')
                 if len(lesson) == 2:
                     lesson = lesson[1]
-                    if lesson in self.all_quque:
-                        list_quque = get_quque(lesson)
-                        self.now_lesson = lesson
-                        self.bot.send_message(self.gruop_id
-                                              , text=f'Очередь начата.\n\n{list_quque}\nДля  проруска')
-                        self.lesson_started = True
+                    if lesson != 'fast':
+                        if lesson in self.all_quque:
+                            list_quque = get_quque(lesson)
+                            self.now_lesson = lesson
+                            self.bot.send_message(self.gruop_id
+                                                  , text=f'Очередь начата.\n\n{list_quque}\nЕсли ты сдал, пиши команду /next'
+                                                         f'\nЕсли ты не готов и хочешь пропустить людей вперед пропиши команду\n"/skip кол-во людей"')
+                            self.lesson_started = True
 
 
+                        else:
+                            self.bot.reply_to(message,
+                                              text='Пара не найдена. Отправь команду в формате \n/start_lesson Название пары')
                     else:
-                        self.bot.reply_to(message,
-                                          text='Пара не найдена. Отправь команду в формате \n/start_lesson Название пары')
+                        self.now_lesson = 'fast'
+                        self.lesson_started = True
+                        self.bot.send_message(self.gruop_id, text='Начата быстрая очередь. Для того чтобы встать в очередь '
+                                                                  'пропиши /+\nЕсли ты сдал, пиши команду /next\nЕсли ты не готов'
+                                                                  ' и хочешь пропустить людей вперед пропиши команду\n"/skip кол-во людей"')
+
                 else:
                     self.bot.reply_to(message,
                                       text='Пара не найдена. Отправь команду в формате \n/start_lesson Название пары')
             else:
                 self.bot.send_message(message.chat.id, text='Начать очередь может только администатор')
 
+        @self.bot.message_handler(commands=['+'])
+        def fast_quqe(message):
+            if self.lesson_started:
+                if self.now_lesson == 'fast':
+                    items = list(self.students.items())
+                    result = next((item for item in items if item[1] == message.from_user.id), None)
+                    self.students_now[result[0]] = len(self.students_now) + 1
+                    self.bot.send_message(message.chat.id, text=get_quque('fast'))
+                else:
+                    self.bot.reply_to(message, text='Эту команду можно использовать только во время быстрой очереди')
+            else:
+                self.bot.reply_to(message, text='Эту команду можно использовать только во время начавшейся пары.')
         @self.bot.message_handler(commands=['skip', 'next'])
         def start_lesson(message):
             if self.lesson_started:
-                students_now = self.all_quque[self.now_lesson]
+                if self.now_lesson != 'fast':
+                    students_now = self.all_quque[self.now_lesson]
+                else:
+                    students_now = self.students_now
                 next_s = list(students_now.keys())[0]
                 if message.from_user.id == self.sid_admin or message.from_user.id == self.students[next_s]:
                     print(message.text)
                     if message.text == '/next':
-                        for student in self.all_quque[self.now_lesson]:
-                            self.all_quque[self.now_lesson][student] -= 1
-                            if self.all_quque[self.now_lesson][student] <= 0:
-                                self.all_quque[self.now_lesson][student] = 24
+                        if self.now_lesson != 'fast':
+                            for student in self.all_quque[self.now_lesson]:
+                                self.all_quque[self.now_lesson][student] -= 1
+                                if self.all_quque[self.now_lesson][student] <= 0:
+                                    self.all_quque[self.now_lesson][student] = len(self.all_quque[self.now_lesson])
 
-                        sorted_dict = {k: v for k, v in
-                                       sorted(self.all_quque[self.now_lesson].items(), key=lambda item: item[1])}
-                        self.all_quque[self.now_lesson] = sorted_dict
-                        students_now = self.all_quque[self.now_lesson]
-                        next_s = list(students_now.keys())[0]
+                            sorted_dict = {k: v for k, v in
+                                           sorted(self.all_quque[self.now_lesson].items(), key=lambda item: item[1])}
+                            self.all_quque[self.now_lesson] = sorted_dict
+                            students_now = self.all_quque[self.now_lesson]
+                            next_s = list(students_now.keys())[0]
+
+                        else:
+                            for student in self.students_now.copy():
+                                self.students_now[student] -= 1
+                                if self.students_now[student] <= 0:
+                                    self.students_now.pop(student)
+                            next_s = list(students_now.keys())[0]
+
                         self.bot.send_message(message.chat.id, text=f'Следующий {next_s}')
-                    else:
+                    else: #todo сделатать для команды fast и проверить будет ли рабоать не становясь 27
                         skiped = message.text
                         skiped = skiped.split(' ')
                         if len(skiped) == 2:
@@ -178,14 +212,13 @@ class TGbot:
                                 for i in range(skiped):
                                     self.all_quque[self.now_lesson][
                                         list(self.all_quque[self.now_lesson].keys())[i + 1]] -= 1
-                                self.all_quque[self.now_lesson][next_s] = skiped + 1
+                                self.all_quque[self.now_lesson][next_s] = skiped + 1 if skiped + 1 <= len(self.students) else len(self.students)
 
                                 sorted_dict = {k: v for k, v in sorted(self.all_quque[self.now_lesson].items(),
                                                                        key=lambda item: item[1])}
                                 self.all_quque[self.now_lesson] = sorted_dict
                                 students_now = self.all_quque[self.now_lesson]
                                 next_s = list(students_now.keys())[0]
-                                next_s_1 = list(students_now.keys())[1]
                                 self.bot.send_message(message.chat.id, text=f'Сейчас {next_s}')
                             else:
                                 print(type(skiped))
@@ -205,6 +238,8 @@ class TGbot:
         @self.bot.message_handler(commands=['stop_lesson'])
         def stop_lesson(message):
             if message.from_user.id == self.sid_admin:
+                if self.now_lesson == 'fast':
+                    self.students_now = {}
                 self.lesson_started = False
                 self.now_lesson = None
                 self.bot.send_message(self.gruop_id
@@ -228,7 +263,7 @@ class TGbot:
 
         @self.bot.message_handler(commands=['del_stud', 'add_stud'])
         def del_add__list_stud(message):
-            if message.from_user.id == self.sid_admin:
+            if message.from_user.id == self.sid_admin: #todo сделать ответ
                 if message.text == '/add_stud':
                     stud = self.bot.send_message(message.chat.id, text="Напиши имя студента для добавления.")
                     self.bot.register_next_step_handler(stud, add_student)
@@ -266,7 +301,7 @@ class TGbot:
                 for student in self.students:
                     self.markup_students.add(student)
 
-                self.bot.send_message(message.chat.id, text=f'Студент {student} добавлен в список.')
+                self.bot.send_message(message.chat.id, text=f'Студент {message.text} добавлен в список.')
 
         @self.bot.message_handler(commands=['save'])
         def save(message):
@@ -403,12 +438,19 @@ class TGbot:
 
         def get_quque(message_text):
             lesson = message_text
-            lesson = self.all_quque[lesson]
+            if lesson != "fast":
+                lesson = self.all_quque[lesson]
 
-            print(lesson)
-            list_queue = ''
-            for student in lesson:
-                list_queue += str(lesson[student]) + ' --- ' + student + '\n'
+                print(lesson)
+                list_queue = ''
+                for student in lesson:
+                    list_queue += str(lesson[student]) + ' --- ' + student + '\n'
+            else:
+                lesson = self.students_now
+                print(lesson)
+                list_queue = ''
+                for student in lesson:
+                    list_queue += str(lesson[student]) + ' --- ' + student + '\n'
 
             return list_queue
 
