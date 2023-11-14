@@ -4,13 +4,12 @@ students = {'Безуглов А.В.':1 , 'Бражко П.П.':2, "Ващенк
                  "Маджарян Р.А":15, "Мелихов А.Н.":16, "Михно Р.А.":17, "Рыбалкин А.В.":18, "Сапуголевцева Д.В.":19,
                  "Старунский Д.А.":20, "Струков М.А.":21, "Федченко Г.Г.":22, "Царев Н.И.":23, "Чернаявская Е.В.":24}
 
-# print(list(students.keys())[0])
-skiped = 4
+from datetime import time, date, datetime
 
-now = list(students.keys())[0]
-for i in range(skiped):
-    students[list(students.keys())[i+1]] -= 1
+now = datetime.now()
+print("Current date and time:", now.strftime("%Y-%m-%d %H:%M:%S"))
 
-students[now] = skiped+1
+print("Current date and time:", now.strftime("%H:%M:%S"))
 
-print(students)
+
+print(time(8,0,0))

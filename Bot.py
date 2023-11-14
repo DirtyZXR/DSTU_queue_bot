@@ -2,30 +2,31 @@ import telebot
 from telebot import types
 import asyncio
 import json
-import snoop
-
+# import snoop
+from threading import Thread
+from datetime import datetime
+import time
 
 class TGbot:
 
     def __init__(self):
         self.bot = telebot.TeleBot(token='6902607895:AAHnUydkC3hmYHdBHErldEnAI6bjNH6qTY4')
-        # self.sid_admin = 675869713 dasha
-        self.sid_admin = 1028552699
-        self.sids = {675869713, }
+        self.sid_admin = 675869713 #dasha
+        # self.sid_admin = 1028552699
         self.students = {'Безуглов А.В.': 1, 'Бражко П.П.': 1, "Ващенко А.В.": 1, 'Горбатков С.А.': 1, "Гугиев А.": 1,
                          "Зелинский Д.Р.": 1028552699, "Ильинова Е.А.": 1, "Колеухов В.А.": 1, "Кононенко И.Д.": 1,
                          "Кравченко Р.С.": 1, "Круглянина А.Р.": 1, "Кузмин Д.А.": 1, "Курносенко Г.В.": 1,
                          "Лозинский Д.И.": 1,
                          "Маджарян Р.А": 1, "Мелихов А.Н.": 1, "Михно Р.А.": 1, "Рыбалкин А.В.": 1,
-                         "Сапуголевцева Д.В.": 675869713,
+                         "Сапуголевцева Д.М.": 675869713,
                          "Старунский Д.А.": 1, "Струков М.А.": 1, "Федченко Г.Г.": 1, "Царев Н.И.": 1,
-                         "Чернаявская Е.В.": 1}
+                         "Чернявская Е.В.": 1}
 
-        self.all_quque = {}
+        self.wait_lesson = False
         self.hideKeyboard = types.ReplyKeyboardRemove()
         self.lesson_started = False
         # self.gruop_id = -1852603965
-        self.gruop_id = -514977824
+        self.gruop_id = -4057230133
         self.markup_students = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         for student in self.students:
             self.markup_students.add(student)
@@ -49,7 +50,6 @@ class TGbot:
                 for fullname in self.students:
                     name = fullname.split(' ')[0]
                     if name == text_name:
-                        self.sids.add(message.from_user.id)
                         self.students[fullname] = message.from_user.id
                         self.bot.reply_to(message, text=f"Авторизация успешно пройдена.")
                         succes = True
@@ -64,15 +64,52 @@ class TGbot:
         # self.bot.register_next_step_handler(passw, authorization)
 
         @self.bot.message_handler(commands=['start_lesson'])
+        # @snoop
         def start(message):
             if message.from_user.id == self.sid_admin:
-                self.lesson_started = True
-                self.students_now = {}
-                self.bot.send_message(self.gruop_id, text='Начата быстрая очередь. Для того чтобы встать в очередь '
-                                                          'пропиши /add\nЕсли ты сдал, пиши команду /next\nЕсли ты не готов'
-                                                          ' и хочешь пропустить людей вперед пропиши команду\n"/skip кол-во людей"')
+                if len(message.text.split(' ')) == 1:
+                    self.lesson_started = True
+                    self.students_now = {}
+                    send_all('Очередь на пару началась')
+                    self.bot.send_message(self.gruop_id, text='Начата быстрая очередь. Для того чтобы встать в очередь '
+                                                              'пропиши /add\nЕсли ты сдал, пиши команду /next\nЕсли ты не готов'
+                                                              ' и хочешь пропустить людей вперед пропиши команду\n"/skip кол-во людей"')
+                else:
+                    time_start = message.text.split(' ')[1]
+                    if len(time_start.split(':')) == 2:
+                        try:
+                            h = int(time_start.split(':')[0])
+                            m = int(time_start.split(':')[1])
+                            self.wait_lesson = True
+                            Thread(target=wait_lesson_start, args=[h,m]).start()
+                            send_all(f'Очередь на пару начнётся в {h}:{m}')
+                        except:
+                            self.bot.send_message(message.chat.id, text='Для начала пары в определенное время отправь команду в формате'
+                                                                        '\nstart_lesson xx:xx')
+
             else:
                 self.bot.send_message(message.chat.id, text='Начать очередь может только администатор')
+
+        # @snoop
+        def send_all(text):
+            for student in self.students:
+                if self.students[student] != 1:
+                    self.bot.send_message(self.students[student], text=text)
+        # @snoop
+        def wait_lesson_start(h,m):
+            time_ = f'{h}:{m}'
+            now = datetime.now()
+            while self.wait_lesson:
+                if time_ == now.strftime("%H:%M"):
+                    self.lesson_started = True
+                    self.students_now = {}
+                    self.bot.send_message(self.gruop_id, text='Начата быстрая очередь. Для того чтобы встать в очередь, '
+                                                              'пропиши /add\nЕсли ты сдал, пиши команду /next\nЕсли ты не готов'
+                                                              ' и хочешь пропустить людей вперед пропиши команду\n"/skip кол-во людей"')
+                    self.wait_lesson = False
+                else:
+                    now = datetime.now()
+                    time.sleep(2)
 
         @self.bot.message_handler(commands=['add'])
         def fast_quqe(message):
@@ -84,6 +121,9 @@ class TGbot:
 
             else:
                 self.bot.reply_to(message, text='Эту команду можно использовать только во время начавшейся пары.')
+
+
+
         @self.bot.message_handler(commands=['skip', 'next'])
         def start_lesson(message):
             if self.lesson_started:
@@ -100,7 +140,7 @@ class TGbot:
                             next_s = list(students_now.keys())[0]
 
                             self.bot.send_message(message.chat.id, text=f'Следующий {next_s}')
-                        else: #todo сделатать для команды fast и проверить будет ли рабоать не становясь 27
+                        else:
                             skiped = message.text
                             skiped = skiped.split(' ')
                             if len(skiped) == 2:
@@ -130,7 +170,7 @@ class TGbot:
                                 self.bot.reply_to(message, text='Укажи сколько человек ты пропускаешь. '
                                                                 'Отправь команду в формате \n/skip Кол-во человек')
                     else:
-                        self.bot.reply_to(message.chat.id,
+                        self.bot.reply_to(message,
                                           text='Продолжить очередь может либо стоящий следуюющим в очереди,'
                                                'либо администратор.')
                 else:
@@ -143,6 +183,7 @@ class TGbot:
             if message.from_user.id == self.sid_admin:
                 self.lesson_started = False
                 self.students_now = {}
+                self.wait_lesson = False
                 self.bot.send_message(self.gruop_id
                                       , text=f'Пара закончена.')
             else:
@@ -170,7 +211,8 @@ class TGbot:
                     list_queue += str(lesson[student]) + ' --- ' + student + '\n'
             else:
                 lsit_quque = 'Очередь путса'
-            return list_queue
+
+            return lsit_quque
 
         @self.bot.message_handler(commands=['del_stud', 'add_stud'])
         def del_add__list_stud(message):
@@ -194,6 +236,15 @@ class TGbot:
             else:
                 self.bot.send_message(message.chat.id, text=f'Студент {student} не найден в списке.', reply_markup=self.hideKeyboard)
 
+        @self.bot.message_handler(commands=['list_students'])
+        def list_students(message):
+            lists_students = ''
+            for student in self.students:
+                lists_students += student + '\n'
+            self.bot.send_message(message.chat.id, text=f'Список студентов:\n{lists_students}')
+
+
+
         def add_student(message):
             student = message.text
             if student in self.students:
@@ -201,7 +252,7 @@ class TGbot:
             else:
 
 
-                self.students[student] = -1
+                self.students[student] = 1
                 sorted_keys = sorted(self.students.keys())
                 self.students = {key: self.students[key] for key in sorted_keys}
 
